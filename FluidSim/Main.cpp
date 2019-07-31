@@ -4,8 +4,10 @@
 #include <SFML/Window.hpp>
 #include <random>
 #include <Eigen/Sparse>
+#include <Eigen/Core>
 #include <math.h>
 #include "SimParts.h"
+#include <thread>
 
 using namespace sf;
 using namespace std;
@@ -29,11 +31,13 @@ Color randColor(T i) {
 
 void main()
 {
+	Eigen::initParallel();
+	cout << "asdf" << thread::hardware_concurrency << endl;
 	int sizeX = 10;
 	int sizeY = 10;
 
 	RenderWindow window{ VideoMode{800,800}, "Tutorial" };
-	window.setFramerateLimit(10);
+	window.setFramerateLimit(1);
 	Event event;
 	CellBoard<float> board(Vector2i(800, 800), Vector2i(sizeX, sizeY));
 	board.setColorF(pressure);

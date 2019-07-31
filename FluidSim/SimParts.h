@@ -13,7 +13,7 @@
 using namespace std;
 using namespace sf;
 
-static const int thread_num = 4;
+static const int thread_num = 8;
 
 template <class T>
 class CellBoard : public Drawable, public Transformable {
@@ -250,41 +250,32 @@ public:
 
 		thread threads[thread_num];
 		int launched_threads = 0;
-		for (int j = 0; j < sizeY; ++j) {
 
-			//lambda setting divergences in given row
-			auto diverRow = [](int j, Eigen::VectorXf* target, FluidSim* self)->void {
-				for (int i = 0; i < self->sizeX; i++) {
-					(*target)[j * self->sizeX + i] = self->divergence(i, j);
-					cout << self->divergence(i, j);
-				}
-			};
-
-			//launch thread if avilable
-			if (launched_threads < thread_num) {
-				threads[launched_threads] = thread(diverRow, j, &b, this);
-				launched_threads++;
+		//lambda setting divergences in given row
+		auto diverRow = [](int j, Eigen::VectorXf* target, FluidSim* self)->void {
+			for (int i = 0; i < self->sizeX; ++i) {
+				(*target)[j * self->sizeX + i] = self->divergence(i, j);
 			}
-			else {
-				//wait for all threads if none are avilable
+		};
+		//multithreaded setting divergences
+		for (int j = 0; j < sizeY; j++) {
+
+			//wait for all threads if none are avilable
+			if (launched_threads == thread_num) {
 				for (int n = 0; n < thread_num; n++) {
 					threads[n].join();
 				}
 				launched_threads = 0;
 			}
-
-
+			//launch thread
+			threads[launched_threads] = thread(diverRow, j, &b, this);
+			launched_threads++;
 		}
-		//wait for threads
+		//wait for remaining threads
 		for (int n = 0; n < launched_threads; n++) {
 			threads[n].join();
 		}
 		launched_threads = 0;
-
-		cout << "------------------------" << endl;
-		cout << b << endl;
-
-		cout << "------------------------" << endl;
 
 
 
@@ -332,15 +323,55 @@ public:
 
 
 		//update velocities from pressure
-		for (int i = 1; i < sizeX; i++) {
-			for (int j = 0; j < sizeY; j++) {
-				vx(i, j) = vx0(i, j) - dt * (1 / density) * ((p0(i, j) - p0(i - 1, j)) / dx);
+
+		//lambdas updating rows
+		auto velX = [](int j, FluidSim* self) {
+			for (int i = 1; i < self->sizeX; i++) {
+				self->vx(i, j) = self->vx0(i, j) - self->dt * (1 / self->density) * ((self->p0(i, j) - self->p0(i - 1, j)) / self->dx);
 			}
+		};
+		auto velY = [](int j, FluidSim* self) {
+			for (int i = 0; i < self->sizeX; i++) {
+				self->vy(i, j) = self->vy0(i, j) - self->dt * (1 / self->density) * ((self->p0(i, j) - self->p0(i, j - 1)) / self->dx);
+			}
+
+		};
+		//update vx
+		for (int j = 0; j < sizeY; j++) {
+			//wait for all threads if none are avilable
+			if (launched_threads == thread_num) {
+				for (int n = 0; n < thread_num; n++) {
+					threads[n].join();
+				}
+				launched_threads = 0;
+			}
+			//launch thread
+			threads[launched_threads] = thread(velX,j,this);
+			launched_threads++;
 		}
-		for (int i = 0; i < sizeX; i++) {
-			for (int j = 1; j < sizeY; j++) {
-				vy(i, j) = vy0(i, j) - dt * (1 / density) * ((p0(i, j) - p0(i, j - 1)) / dx);
+		//wait for remaining threads
+		for (int n = 0; n < launched_threads; n++) {
+			threads[n].join();
+		}
+		launched_threads = 0;
+
+
+		//update vy
+		for (int j = 1; j < sizeY; j++) {
+			//wait for all threads if none are avilable
+			if (launched_threads == thread_num) {
+				for (int n = 0; n < thread_num; n++) {
+					threads[n].join();
+				}
+				launched_threads = 0;
 			}
+			//launch thread
+			threads[launched_threads] = thread(velY, j, this);
+			launched_threads++;
+		}
+		//wait for remaining threads
+		for (int n = 0; n < launched_threads; n++) {
+			threads[n].join();
 		}
 
 		bounds();
@@ -440,9 +471,10 @@ public:
 	}
 
 	void sim() {
-
+		Clock clock;
 		//advect();
 		project();
+		cout << "sim step finished in " << clock.getElapsedTime().asMilliseconds() << endl;
 	}
 
 	float* getRaw() {
