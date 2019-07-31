@@ -8,9 +8,12 @@
 #include <random>
 #include <Eigen/Sparse>
 #include <math.h>
+#include <thread>
 
 using namespace std;
 using namespace sf;
+
+static const int thread_num = 4;
 
 template <class T>
 class CellBoard : public Drawable, public Transformable {
@@ -244,11 +247,46 @@ public:
 	void project() {
 		//prepare b vector
 		Eigen::VectorXf b(sizeX * sizeY);
-		for (int i = 0; i < sizeX; i++) {
-			for (int j = 0; j < sizeY; j++) {
-				b[j * sizeX + i] = divergence(i, j);
+
+		thread threads[thread_num];
+		int launched_threads = 0;
+		for (int j = 0; j < sizeY; ++j) {
+
+			//lambda setting divergences in given row
+			auto diverRow = [](int j, Eigen::VectorXf* target, FluidSim* self)->void {
+				for (int i = 0; i < self->sizeX; i++) {
+					(*target)[j * self->sizeX + i] = self->divergence(i, j);
+					cout << self->divergence(i, j);
+				}
+			};
+
+			//launch thread if avilable
+			if (launched_threads < thread_num) {
+				threads[launched_threads] = thread(diverRow, j, &b, this);
+				launched_threads++;
 			}
+			else {
+				//wait for all threads if none are avilable
+				for (int n = 0; n < thread_num; n++) {
+					threads[n].join();
+				}
+				launched_threads = 0;
+			}
+
+
 		}
+		//wait for threads
+		for (int n = 0; n < launched_threads; n++) {
+			threads[n].join();
+		}
+		launched_threads = 0;
+
+		cout << "------------------------" << endl;
+		cout << b << endl;
+
+		cout << "------------------------" << endl;
+
+
 
 		//prepare matrix a
 		Eigen::SparseMatrix<float> a(sizeX * sizeY, sizeX * sizeY);

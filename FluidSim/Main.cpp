@@ -29,8 +29,8 @@ Color randColor(T i) {
 
 void main()
 {
-	int sizeX = 40;
-	int sizeY = 40;
+	int sizeX = 10;
+	int sizeY = 10;
 
 	RenderWindow window{ VideoMode{800,800}, "Tutorial" };
 	window.setFramerateLimit(10);
