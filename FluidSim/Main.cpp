@@ -32,20 +32,20 @@ Color randColor(T i) {
 void main()
 {
 	Eigen::initParallel();
-	cout << "asdf" << thread::hardware_concurrency << endl;
-	int sizeX = 10;
-	int sizeY = 10;
+	int sizeX = 30;
+	int sizeY = 30;
 
 	RenderWindow window{ VideoMode{800,800}, "Tutorial" };
-	window.setFramerateLimit(1);
+	window.setFramerateLimit(2);
 	Event event;
 	CellBoard<float> board(Vector2i(800, 800), Vector2i(sizeX, sizeY));
 	board.setColorF(pressure);
 
-	FluidSim sim(10, 1, sizeX, sizeY, 1.0f, 1.0f);
+	FluidSim sim(1, 1, sizeX, sizeY, 1.0f, 1.0f);
 	board.setBoard(sim.getRaw());
 
-	Vector2i prevclick;
+	Vector2i prevclick(0,0);
+	bool pressed = false;
 	bool flag = true;
 	Matrix<float> vels(sizeX, sizeY, 0.0f, 0.0f);
 	while (window.isOpen()) {
@@ -57,6 +57,7 @@ void main()
 				break;
 			}
 			if (Mouse::isButtonPressed(Mouse::Button::Left)) {
+				pressed = true;
 				Vector2i cellPos = board.getCellCoordAtPos(Mouse::getPosition(window));
 				sim.clearvX(prevclick.x, prevclick.y);
 				prevclick = cellPos;
@@ -67,14 +68,15 @@ void main()
 				flag = !flag;
 
 			}
-
-
+		}
+		if (pressed) {
+			sim.wiatrak(prevclick.x, prevclick.y);
 		}
 		sim.sim();
 
 		for (int i = 0; i < sizeX; i++) {
 			for (int j = 0; j < sizeY; j++) {
-				vels(i, j) = sim.interpVx(i, j);
+				vels(i, j) = pow(pow(sim.interpVx(i, j), 2) + pow(sim.interpVy(i, j), 2), 0.5f);
 			}
 		}
 		if (flag) {

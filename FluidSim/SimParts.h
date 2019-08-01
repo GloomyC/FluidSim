@@ -13,7 +13,7 @@
 using namespace std;
 using namespace sf;
 
-static const int thread_num = 8;
+static const int thread_num = 20;
 
 template <class T>
 class CellBoard : public Drawable, public Transformable {
@@ -313,7 +313,6 @@ public:
 
 		Eigen::VectorXf solution(sizeX * sizeY);
 		solution = solver.solve(b);
-		cout << solver.iterations() << endl;
 
 		for (int i = 0; i < sizeX; i++) {
 			for (int j = 0; j < sizeY; j++) {
@@ -424,12 +423,13 @@ public:
 		//advect vx
 		for (int i = 0; i < sizeX + 1; i++) {
 			for (int j = 0; j < sizeY; j++) {
+
 				float xMid = (float)i - 0.5f * dt * vx0(i, j);
 				float yMid = (float)j - 0.5f * dt * interpVy((float)i - 0.5f, (float)j);
 
 				float xEnd = (float)i - dt * interpVx(xMid, yMid);
-
-				vx(i, j) = xEnd;
+				float yEnd = (float)j - dt * interpVy(xMid, yMid);
+				vx(i, j) = interpVx(xEnd, yEnd);
 
 			}
 		}
@@ -440,8 +440,9 @@ public:
 				float xMid = (float)i - 0.5f * dt * interpVx((float)i, (float)j - 0.5f);
 
 				float yEnd = (float)j - dt * interpVy(xMid, yMid);
+				float xEnd = (float)i - dt * interpVx(xMid, yMid);
 
-				vy(i, j) = yEnd;
+				vy(i, j) = interpVy(xEnd, yEnd);
 
 			}
 		}
@@ -472,8 +473,11 @@ public:
 
 	void sim() {
 		Clock clock;
-		//advect();
+		advect();
+		cout << "advection finished in " << clock.getElapsedTime().asMilliseconds() << endl;
+		Clock clock2;
 		project();
+		cout << "projection finished in " << clock2.getElapsedTime().asMilliseconds() << endl;
 		cout << "sim step finished in " << clock.getElapsedTime().asMilliseconds() << endl;
 	}
 
@@ -489,7 +493,7 @@ public:
 		p0(0, 0) = 200.0f;
 	}
 	void wiatrak(int x, int y) {
-		vx0(x + 1, y) = 100.0f;
+		vx0(x + 1, y) = 10.0f;
 	}
 	void clearvX(int x, int y) {
 
